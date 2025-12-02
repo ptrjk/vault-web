@@ -165,7 +165,7 @@
           </td>
 
           <td class="px-1 py-0.5 sm:px-2 sm:py-1">
-            {{ formatFileSize(file.size) }}
+            {{ file.size | fileSize }}
           </td>
           <td class="px-1 py-0.5 sm:px-2 sm:py-1">
             {{ file.mimeType || "Unknown" }}

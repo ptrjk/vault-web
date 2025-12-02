@@ -2,7 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FolderDto } from '../../models/dtos/FolderDto';
+import { FileDto } from '../../models/dtos/FileDto';
 import { CloudService } from '../../services/cloud.service';
+import { FileSizePipe } from '../../pipes/file-size.pipe';
 
 interface Breadcrumb {
   name: string;
@@ -12,7 +14,7 @@ interface Breadcrumb {
 @Component({
   selector: 'app-cloud',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FileSizePipe],
   templateUrl: './cloud.component.html',
   styleUrls: ['./cloud.component.scss'],
 })
@@ -24,7 +26,7 @@ export class CloudComponent implements OnInit {
   rootPath = '';
   showCreateDropdown = false;
   showFileEditor = false;
-  editingFile: any = null;
+  editingFile: FileDto | null = null;
   newFileName = '';
   fileContent = '';
   private draggedPath: string | null = null;
@@ -46,7 +48,7 @@ export class CloudComponent implements OnInit {
         this.updateBreadcrumbs(folder.path);
         this.loading = false;
       },
-      error: (err) => {
+      error: (_err) => {
         this.error = 'Error loading root folder';
         this.loading = false;
       },
@@ -66,7 +68,7 @@ export class CloudComponent implements OnInit {
         this.updateBreadcrumbs(folder.path);
         this.loading = false;
       },
-      error: (err) => {
+      error: (_err) => {
         this.error = 'Error navigating to folder';
         this.loading = false;
       },
@@ -114,7 +116,7 @@ export class CloudComponent implements OnInit {
     this.showFileEditor = true;
   }
 
-  editFile(file: any) {
+  editFile(file: FileDto) {
     const nonEditableExtensions = [
       'pdf',
       'png',
@@ -177,8 +179,9 @@ export class CloudComponent implements OnInit {
     });
   }
 
-  onFileSelected(event: any) {
-    const file: File = event.target.files[0];
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file: File | undefined = input.files?.[0];
     if (!file) return;
     const currentPath = this.getRelativePath(this.currentFolder?.path || '/');
     this.uploadFile(currentPath, file);
@@ -202,7 +205,7 @@ export class CloudComponent implements OnInit {
     });
   }
 
-  downloadFile(file: any) {
+  downloadFile(file: FileDto) {
     const relativePath = this.getRelativePath(file.path);
     this.cloudService.getFileBlob(relativePath).subscribe({
       next: (blob) => {
@@ -215,14 +218,6 @@ export class CloudComponent implements OnInit {
       },
       error: (err) => alert('Error downloading file: ' + err.message),
     });
-  }
-
-  formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   onDragStart(event: DragEvent, path: string, isFolder: boolean) {
@@ -239,7 +234,11 @@ export class CloudComponent implements OnInit {
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
   }
 
-  async onDrop(event: DragEvent, targetFolder: any, isFolder: boolean) {
+  async onDrop(
+    event: DragEvent,
+    targetFolder: FolderDto | null,
+    _isFolder: boolean,
+  ) {
     event.preventDefault();
     if (!this.draggedPath) return;
     const targetPath = targetFolder?.path || this.currentFolder?.path;
@@ -263,8 +262,8 @@ export class CloudComponent implements OnInit {
           .toPromise();
       }
       this.reloadRootFolder();
-    } catch (err: any) {
-      alert('Error moving item: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error moving item: ' + (err as Error).message);
     } finally {
       this.draggedPath = null;
     }
@@ -296,8 +295,8 @@ export class CloudComponent implements OnInit {
           .toPromise();
       }
       this.reloadRootFolder();
-    } catch (err: any) {
-      alert('Error moving item: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error moving item: ' + (err as Error).message);
     } finally {
       this.draggedPath = null;
     }
@@ -308,7 +307,7 @@ export class CloudComponent implements OnInit {
     return parts[parts.length - 1];
   }
 
-  renameFolder(folder: any) {
+  renameFolder(folder: FolderDto) {
     const newName = prompt('Enter new folder name:', folder.name);
     if (!newName || newName.trim() === '' || newName === folder.name) return;
     const relativeSource = this.getRelativePath(folder.path);
@@ -322,7 +321,7 @@ export class CloudComponent implements OnInit {
       });
   }
 
-  previewFile(file: any) {
+  previewFile(file: FileDto) {
     const ext = file.name.split('.').pop()?.toLowerCase();
     const imageExt = ['png', 'jpg', 'jpeg', 'gif', 'bmp'];
     const pdfExt = ['pdf'];
